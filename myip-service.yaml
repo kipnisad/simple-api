@@ -1,0 +1,71 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: api-myip-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-myip-server
+  template:
+    metadata:
+      labels:
+        app: api-myip-server
+    spec:
+      containers:
+      - name: api-myip
+        image: kipnisad/api-myip:latest
+        imagePullPolicy: IfNotPresent
+        #command: ["/bin/ash"]
+        #args: ["-c", "echo \"<p><b>Hello from $(hostname)</b></p>\" > index.html; python -m http.server 8080"]
+        ports:
+        - name: http
+          containerPort: 8000
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: service-api
+spec:
+  selector:
+    app: api-myip-server
+  ports:
+  - port: 80
+    targetPort: http
+  #externalIPs:
+  #- 192.168.10.2
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: service-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: service-api
+  minReplicas: 2
+  maxReplicas: 10
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 30
+    scaleUp:
+      stabilizationWindowSeconds: 0
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
